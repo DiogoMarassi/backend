@@ -1,0 +1,125 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum CefrLevel {
+  A1
+  A2
+  B1
+  B2
+  C1
+  C2
+}
+
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  password  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  streak    Streak?
+  profile   UserProfile?
+  lessons   Lesson[]
+  progress  LessonProgress[]
+  userCards UserCard[]
+}
+
+model UserProfile {
+  id         String  @id @default(uuid())
+  userId     String  @unique
+  occupation String?
+  objective  String?
+  techLevel  String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Streak {
+  id               String   @id @default(uuid())
+  userId           String   @unique
+  currentStreak    Int      @default(0)
+  highestStreak    Int      @default(0)
+  lastActivityDate DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Lesson {
+  id         String     @id @default(uuid())
+  userId     String
+  title      String
+  level      CefrLevel?
+  themeWords String[]
+  createdAt  DateTime   @default(now())
+
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  story     Story?
+  progress  LessonProgress[]
+  userCards UserCard[]
+}
+
+model Story {
+  id       String @id @default(uuid())
+  lessonId String @unique
+  content  String @db.Text
+  audioUrl String
+
+  lesson Lesson      @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  words  StoryWord[]
+}
+
+// Vocabulário global — sem duplicatas por "original"
+model Vocabulary {
+  id          String @id @default(uuid())
+  original    String @unique
+  translation String
+
+  stories   StoryWord[]
+  userCards UserCard[]
+}
+
+// Join: quais vocabulários aparecem em cada história
+model StoryWord {
+  storyId      String
+  vocabularyId String
+
+  story      Story      @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  vocabulary Vocabulary @relation(fields: [vocabularyId], references: [id], onDelete: Cascade)
+
+  @@id([storyId, vocabularyId])
+}
+
+// Cards salvos pelo usuário por lição
+model UserCard {
+  id           String   @id @default(uuid())
+  userId       String
+  vocabularyId String
+  lessonId     String?
+  learned      Boolean  @default(false)
+  savedAt      DateTime @default(now())
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vocabulary Vocabulary @relation(fields: [vocabularyId], references: [id], onDelete: Cascade)
+  lesson     Lesson?    @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, vocabularyId, lessonId])
+}
+
+model LessonProgress {
+  id          String   @id @default(uuid())
+  userId      String
+  lessonId    String
+  completedAt DateTime @default(now())
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, lessonId])
+}
