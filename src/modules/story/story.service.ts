@@ -1,9 +1,7 @@
 import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
 import { removeStopwords, fra } from 'stopword';
 import { jsonrepair } from 'jsonrepair';
-
-const OLLAMA_URL = process.env.OLLAMA_URL ?? 'http://localhost:11434';
-const OLLAMA_MODEL = process.env.OLLAMA_MODEL ?? 'mistral';
+import { LlmService, AiProvider } from '../llm/llm.service';
 
 export interface ExtractedWord {
     original: string;
@@ -14,31 +12,35 @@ export interface ExtractedWord {
 export class StoryService {
     private readonly logger = new Logger(StoryService.name);
 
-    async generateStory(level: string, themes: string[]): Promise<string> {
-        var nivel = 'élémentaire';
-        console.log("Level recebido para geração de história:", level);
+    constructor(private readonly llm: LlmService) { }
 
-        if (level === 'A2') nivel = 'élémentaire';
-        else if (level === 'B1') nivel = 'intermédiaire';
-        else if (level === 'B2') nivel = 'intermédiaire avancé';
-        else if (level === 'C1') nivel = 'avancé';
-        else if (level === 'C2') nivel = 'expérimenté'; // ou 'bilingue'
-
+    async generateStory(
+        level: string,
+        provider: AiProvider,
+        options: { themeWords?: string[]; vocabularyWords?: string[] },
+        apiKey?: string,
+    ): Promise<string> {
+        const wordsInstruction = options.vocabularyWords?.length
+            ? `Tu DOIS utiliser les mots suivants dans l'histoire, de manière naturelle : ${options.vocabularyWords.join(', ')}.
+Ces mots doivent apparaître dans le texte tels quels ou sous une forme fléchie.`
+            : `Les mots suivants définissent le THÈME et le contexte de l'histoire : ${(options.themeWords ?? []).join(', ')}.
+Tu n'as pas besoin d'utiliser ces mots exacts dans le texte, sers-t'en uniquement comme inspiration pour le scénario.`;
 
         const prompt = `Agis comme un professeur de français natif et créatif.
-Écris une histoire de 3 à 4 paragraphes en français pour un étudiant de niveau ${level} (CEFR).
-Les mots suivants définissent le THÈME et le contexte de l'histoire : ${themes.join(', ')}. 
-Tu n'as pas besoin d'utiliser ces mots exacts dans le texte, sers-t'en uniquement comme inspiration pour le scénario.
+Écris une histoire en français pour un étudiant de niveau ${level} (CEFR).
+${wordsInstruction}
 
 Règles strictes :
+- La longueur de l'histoire doit être d'environ 1000 caractères (espaces compris).
+- Divise le texte en plusieurs paragraphes bien structurés pour faciliter la lecture.
 - Utilise exclusivement le vocabulaire et la grammaire adaptés au niveau ${level}.
 - Ne fournis AUCUNE traduction, explication, ni salutation.
 - Retourne UNIQUEMENT le texte de l'histoire en français.`;
 
-        return this.callOllama(prompt);
+        return this.llm.generate(prompt, provider, apiKey);
     }
 
-    async extractWords(content: string): Promise<ExtractedWord[]> {
+    async extractWords(content: string, provider: AiProvider, apiKey?: string): Promise<ExtractedWord[]> {
         // 1. Tokenização determinística — só letras francesas, mínimo 3 caracteres
         const tokens = content
             .toLowerCase()
@@ -61,7 +63,7 @@ Exact format required:
 
 Words to translate: ${unique.join(', ')}`;
 
-        const raw = await this.callOllama(prompt);
+        const raw = await this.llm.generate(prompt, provider, apiKey);
 
         try {
             // Isola o trecho que parece um array JSON e tenta reparar
@@ -78,26 +80,4 @@ Words to translate: ${unique.join(', ')}`;
         }
     }
 
-    private async callOllama(prompt: string): Promise<string> {
-        let res: Response;
-        try {
-            res = await fetch(`${OLLAMA_URL}/api/generate`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ model: OLLAMA_MODEL, prompt, stream: false }),
-            });
-        } catch {
-            throw new InternalServerErrorException(
-                'Não foi possível conectar ao Ollama. Verifique se ele está rodando em ' + OLLAMA_URL,
-            );
-        }
-
-        if (!res.ok) {
-            const body = await res.text().catch(() => '');
-            throw new InternalServerErrorException(`Ollama retornou erro ${res.status}: ${body}`);
-        }
-
-        const data = await res.json() as { response: string };
-        return data.response.trim();
-    }
 }

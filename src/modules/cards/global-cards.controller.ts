@@ -20,9 +20,9 @@ export class GlobalCardsController {
 
   @Post('manual')
   @ApiOperation({ summary: 'Adicionar palavra manualmente ao vocabulário' })
-  saveManual(@Req() req: express.Request, @Body() body: { original: string; translation: string }) {
+  saveManual(@Req() req: express.Request, @Body() body: { original: string; translation: string; lessonId?: string }) {
     const user = req.user as { id: string };
-    return this.cardsService.saveManual(user.id, body.original, body.translation);
+    return this.cardsService.saveManual(user.id, body.original, body.translation, body.lessonId);
   }
 
   @Post(':id/learned')

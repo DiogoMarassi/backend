@@ -47,6 +47,16 @@ export class AuthService {
     return { token, user: { id: user.id, name: user.name, email: user.email } };
   }
 
+  async loginOrRegisterGoogle(googleUser: { email: string; name: string }) {
+    let user = await this.prisma.user.findUnique({ where: { email: googleUser.email } });
+    if (!user) {
+      user = await this.prisma.user.create({
+        data: { email: googleUser.email, name: googleUser.name, password: null },
+      });
+    }
+    return this.sign(user);
+  }
+
   private sign(user: { id: string; email: string; name: string }) {
     return this.jwtService.sign({ sub: user.id, email: user.email, name: user.name });
   }

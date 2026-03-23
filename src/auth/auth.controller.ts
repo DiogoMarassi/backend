@@ -1,6 +1,7 @@
 import { Controller, Post, Get, Body, Res, Req, UseGuards, HttpCode } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import type { Response, Request } from 'express';
+import { AuthGuard } from '@nestjs/passport';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
@@ -44,6 +45,22 @@ export class AuthController {
   logout(@Res({ passthrough: true }) res: Response) {
     res.clearCookie('jwt', { httpOnly: true, sameSite: 'lax' });
     return { message: 'Logout realizado com sucesso' };
+  }
+
+  @Get('google')
+  @UseGuards(AuthGuard('google'))
+  @ApiOperation({ summary: 'Inicia login com Google — redireciona para o consent screen' })
+  googleAuth() {
+    // Passport redireciona automaticamente
+  }
+
+  @Get('google/callback')
+  @UseGuards(AuthGuard('google'))
+  @ApiOperation({ summary: 'Callback do Google OAuth — seta cookie JWT e redireciona' })
+  googleCallback(@Req() req: Request & { user: { token: string } }, @Res() res: Response) {
+    res.cookie('jwt', req.user.token, COOKIE_OPTIONS);
+    const frontend = process.env.FRONTEND_URL ?? 'http://localhost:3000';
+    res.redirect(`${frontend}/auth/callback`);
   }
 
   @Get('me')

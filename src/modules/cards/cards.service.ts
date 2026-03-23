@@ -111,18 +111,18 @@ export class CardsService {
     return Array.from(map.values());
   }
 
-  async saveManual(userId: string, original: string, translation: string) {
+  async saveManual(userId: string, original: string, translation: string, lessonId?: string) {
     const vocab = await this.prisma.vocabulary.upsert({
       where: { original: original.toLowerCase().trim() },
       update: {},
       create: { original: original.toLowerCase().trim(), translation: translation.trim() },
     });
     const existing = await this.prisma.userCard.findFirst({
-      where: { userId, vocabularyId: vocab.id, lessonId: null },
+      where: { userId, vocabularyId: vocab.id, lessonId: lessonId ?? null },
     });
     if (existing) return existing;
     return this.prisma.userCard.create({
-      data: { userId, vocabularyId: vocab.id, lessonId: null },
+      data: { userId, vocabularyId: vocab.id, lessonId: lessonId ?? null },
     });
   }
 

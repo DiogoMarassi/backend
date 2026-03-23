@@ -13,4 +13,7 @@ export class CreateLessonDto {
 
   @ApiPropertyOptional({ example: 'Il était une fois...' })
   storyContent?: string;
+
+  @ApiPropertyOptional({ enum: ['gemini', 'ollama'], example: 'gemini' })
+  provider?: 'gemini' | 'ollama';
 }

@@ -3,6 +3,7 @@ import { ApiTags, ApiOperation, ApiParam, ApiCookieAuth } from '@nestjs/swagger'
 import express from 'express';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { LessonsService } from './lessons.service';
+import { ProfileService } from '../profile/profile.service';
 import { CreateLessonDto } from './dto/create-lesson.dto';
 
 @ApiTags('lessons')
@@ -10,13 +11,17 @@ import { CreateLessonDto } from './dto/create-lesson.dto';
 @UseGuards(JwtAuthGuard)
 @Controller('lessons')
 export class LessonsController {
-  constructor(private readonly lessonsService: LessonsService) { }
+  constructor(
+    private readonly lessonsService: LessonsService,
+    private readonly profileService: ProfileService,
+  ) {}
 
   @Post()
   @ApiOperation({ summary: 'Criar nova lição' })
-  create(@Body() dto: CreateLessonDto, @Req() req: express.Request) {
+  async create(@Body() dto: CreateLessonDto, @Req() req: express.Request) {
     const user = req.user as { id: string };
-    return this.lessonsService.create(dto, user.id);
+    const apiKey = await this.profileService.getDecryptedGeminiKey(user.id);
+    return this.lessonsService.create(dto, user.id, apiKey);
   }
 
   @Get()

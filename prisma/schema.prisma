@@ -32,11 +32,12 @@ model User {
 }
 
 model UserProfile {
-  id         String  @id @default(uuid())
-  userId     String  @unique
-  occupation String?
-  objective  String?
-  techLevel  String?
+  id            String  @id @default(uuid())
+  userId        String  @unique
+  occupation    String?
+  objective     String?
+  techLevel     String?
+  geminiApiKey  String?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

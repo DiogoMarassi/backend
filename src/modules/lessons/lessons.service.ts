@@ -2,6 +2,7 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AudioService } from '../audio/audio.service';
 import { StoryService } from '../story/story.service';
+import { ProfileService } from '../profile/profile.service';
 import { CreateLessonDto } from './dto/create-lesson.dto';
 
 @Injectable()
@@ -12,9 +13,10 @@ export class LessonsService {
     private prisma: PrismaService,
     private audio: AudioService,
     private story: StoryService,
+    private profile: ProfileService,
   ) {}
 
-  async create(dto: CreateLessonDto, userId: string) {
+  async create(dto: CreateLessonDto, userId: string, apiKey?: string) {
     const lesson = await this.prisma.lesson.create({
       data: {
         userId,
@@ -28,7 +30,7 @@ export class LessonsService {
       try {
         const [audioUrl, extractedWords] = await Promise.all([
           this.audio.generateAudio(dto.storyContent, lesson.id),
-          this.story.extractWords(dto.storyContent),
+          this.story.extractWords(dto.storyContent, dto.provider ?? 'gemini', apiKey),
         ]);
 
         const createdStory = await this.prisma.story.create({
@@ -49,6 +51,7 @@ export class LessonsService {
         }
       } catch (err) {
         this.logger.error('Falha ao processar história:', err);
+        await this.prisma.lesson.delete({ where: { id: lesson.id } }).catch(() => {});
         throw err;
       }
     }
