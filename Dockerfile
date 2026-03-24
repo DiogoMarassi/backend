@@ -29,8 +29,11 @@ RUN curl -fsSL https://github.com/rhasspy/piper/releases/download/2023.11.14-2/p
     && mkdir -p /app/piper-bin \
     && mv /tmp/piper/piper /app/piper-bin/piper \
     && mv /tmp/piper/espeak-ng-data /app/piper-bin/espeak-ng-data \
+    && find /tmp/piper -name "*.so*" -exec mv {} /app/piper-bin/ \; \
     && rm -rf /tmp/piper \
-    && chmod +x /app/piper-bin/piper
+    && chmod +x /app/piper-bin/piper \
+    && echo "/app/piper-bin" > /etc/ld.so.conf.d/piper.conf \
+    && ldconfig
 
 COPY piper/fr_FR-upmc-medium.onnx     /app/piper-bin/
 COPY piper/fr_FR-upmc-medium.onnx.json /app/piper-bin/
