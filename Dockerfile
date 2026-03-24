@@ -15,7 +15,8 @@ RUN npm run build && npx prisma generate
 # ── Production stage ──────────────────────────────────────────────────────────
 FROM node:22-slim AS production
 
-RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates \
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl ca-certificates libespeak-ng1 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
