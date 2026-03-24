@@ -7,9 +7,12 @@ import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { JwtAuthGuard } from './jwt-auth.guard';
 
+const isProduction = process.env.NODE_ENV === 'production';
+
 const COOKIE_OPTIONS = {
   httpOnly: true,
-  sameSite: 'lax' as const,
+  sameSite: (isProduction ? 'none' : 'lax') as 'none' | 'lax',
+  secure: isProduction,
   maxAge: 7 * 24 * 60 * 60 * 1000,
 };
 
@@ -43,7 +46,7 @@ export class AuthController {
   @HttpCode(200)
   @ApiOperation({ summary: 'Logout — limpa o cookie JWT' })
   logout(@Res({ passthrough: true }) res: Response) {
-    res.clearCookie('jwt', { httpOnly: true, sameSite: 'lax' });
+    res.clearCookie('jwt', { httpOnly: true, sameSite: isProduction ? 'none' : 'lax', secure: isProduction });
     return { message: 'Logout realizado com sucesso' };
   }
 
