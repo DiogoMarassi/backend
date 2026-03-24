@@ -39,19 +39,26 @@ export class AudioService {
 
     await new Promise<void>((resolve, reject) => {
       const proc = spawn(piperBin, ['--model', modelPath, '--output_file', outputPath], {
-        stdio: ['pipe', 'pipe', 'pipe'],
-        cwd: path.dirname(piperBin), // piper precisa encontrar espeak-ng-data na sua pasta
+        stdio: ['pipe', 'ignore', 'pipe'], // stdout ignorado para não travar o buffer
+        cwd: path.dirname(piperBin),
       });
 
       let stderr = '';
       proc.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString(); });
 
+      const timeout = setTimeout(() => {
+        proc.kill();
+        reject(new Error('Piper timeout após 120s'));
+      }, 120_000);
+
       proc.on('error', (err) => {
+        clearTimeout(timeout);
         this.logger.error(`Erro ao iniciar Piper: ${err.message}`);
         reject(new Error(`Não foi possível iniciar o Piper: ${err.message}`));
       });
 
       proc.on('close', (code) => {
+        clearTimeout(timeout);
         if (code === 0) {
           resolve();
         } else {
