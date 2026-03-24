@@ -47,12 +47,12 @@ COPY --from=builder /app/dist ./dist
 
 RUN mkdir -p public/audios
 
-ENV PORT=3001
+ENV PORT=8080
 ENV NODE_ENV=production
 ENV PIPER_PATH=/app/piper-bin/piper
 ENV PIPER_MODEL=/app/piper-bin/fr_FR-upmc-medium.onnx
 
-EXPOSE 3001
+EXPOSE 8080
 
 COPY docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
