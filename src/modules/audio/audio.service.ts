@@ -1,20 +1,18 @@
-import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import * as path from 'path';
 import * as fs from 'fs';
 import { spawn } from 'child_process';
+import { Storage } from '@google-cloud/storage';
 
 @Injectable()
 export class AudioService {
   private readonly logger = new Logger(AudioService.name);
+  private readonly storage = new Storage();
 
   async generateAudio(text: string, lessonId: string): Promise<string> {
-    const audiosDir = path.join(process.cwd(), 'public', 'audios');
-    if (!fs.existsSync(audiosDir)) {
-      fs.mkdirSync(audiosDir, { recursive: true });
-    }
-
     const outputFileName = `lesson_${lessonId}.wav`;
-    const outputPath = path.join(audiosDir, outputFileName);
+    const outputPath = path.join('/tmp', outputFileName);
+
     const rawModelPath = process.env.PIPER_MODEL ?? 'models\\fr_FR-upmc-medium.onnx';
     const modelPath = path.isAbsolute(rawModelPath)
       ? rawModelPath
@@ -31,15 +29,16 @@ export class AudioService {
     this.logger.log(`model existe? ${fs.existsSync(modelPath)}`);
 
     if (!fs.existsSync(piperBin)) {
-      throw new Error(`piper.exe não encontrado em: ${piperBin}\nDefina PIPER_PATH no .env`);
+      throw new Error(`piper não encontrado em: ${piperBin}`);
     }
     if (!fs.existsSync(modelPath)) {
       throw new Error(`Modelo não encontrado em: ${modelPath}`);
     }
 
+    // ── 1. Gera o áudio localmente em /tmp ──────────────────────────────────
     await new Promise<void>((resolve, reject) => {
       const proc = spawn(piperBin, ['--model', modelPath, '--output_file', outputPath], {
-        stdio: ['pipe', 'ignore', 'pipe'], // stdout ignorado para não travar o buffer
+        stdio: ['pipe', 'ignore', 'pipe'],
         cwd: path.dirname(piperBin),
       });
 
@@ -71,6 +70,23 @@ export class AudioService {
       proc.stdin.end();
     });
 
-    return `/audios/${outputFileName}`;
+    // ── 2. Faz upload para o GCS ─────────────────────────────────────────────
+    const bucketName = process.env.GCS_BUCKET_NAME;
+    if (!bucketName) {
+      throw new Error('GCS_BUCKET_NAME não definido nas variáveis de ambiente');
+    }
+
+    const destination = `audios/${outputFileName}`;
+    await this.storage.bucket(bucketName).upload(outputPath, {
+      destination,
+      metadata: { contentType: 'audio/wav' },
+    });
+
+    // Remove arquivo temporário
+    fs.unlink(outputPath, () => {});
+
+    this.logger.log(`Áudio enviado para GCS: gs://${bucketName}/${destination}`);
+
+    return `https://storage.googleapis.com/${bucketName}/${destination}`;
   }
 }
