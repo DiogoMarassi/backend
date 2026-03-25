@@ -87,6 +87,7 @@ export class AudioService {
 
     this.logger.log(`Áudio enviado para GCS: gs://${bucketName}/${destination}`);
 
-    return `https://storage.googleapis.com/${bucketName}/${destination}`;
+    // Retorna URL do endpoint proxy do backend (não requer bucket público)
+    return `/api/audio/${outputFileName}`;
   }
 }
