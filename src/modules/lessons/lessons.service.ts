@@ -31,34 +31,38 @@ export class LessonsService {
       this.story.extractWords(dto.storyContent, dto.provider ?? 'gemini', apiKey),
     ]);
 
-    // Both succeeded — now persist everything atomically.
-    return this.prisma.$transaction(async (tx) => {
-      const lesson = await tx.lesson.create({
-        data: { userId, title: dto.title, level: dto.level, themeWords: dto.themeWords ?? [] },
-      });
+    // Both succeeded — persist sequentially with manual rollback on failure.
+    const lesson = await this.prisma.lesson.create({
+      data: { userId, title: dto.title, level: dto.level, themeWords: dto.themeWords ?? [] },
+    });
 
-      const createdStory = await tx.story.create({
+    try {
+      const createdStory = await this.prisma.story.create({
         data: { lessonId: lesson.id, content: dto.storyContent!, audioUrl },
       });
 
       for (const w of extractedWords) {
-        const vocab = await tx.vocabulary.upsert({
+        const vocab = await this.prisma.vocabulary.upsert({
           where: { original: w.original.toLowerCase() },
           update: {},
           create: { original: w.original.toLowerCase(), translation: w.translation },
         });
-        await tx.storyWord.upsert({
+        await this.prisma.storyWord.upsert({
           where: { storyId_vocabularyId: { storyId: createdStory.id, vocabularyId: vocab.id } },
           update: {},
           create: { storyId: createdStory.id, vocabularyId: vocab.id },
         });
       }
+    } catch (err) {
+      this.logger.error('Falha ao persistir história/vocabulário:', err);
+      await this.prisma.lesson.delete({ where: { id: lesson.id } }).catch(() => {});
+      throw err;
+    }
 
-      return tx.lesson.findUnique({
-        where: { id: lesson.id },
-        include: { story: { include: { words: true } } },
-      });
-    }, { timeout: 30_000 });
+    return this.prisma.lesson.findUnique({
+      where: { id: lesson.id },
+      include: { story: { include: { words: true } } },
+    });
   }
 
   async findAll(userId: string) {
