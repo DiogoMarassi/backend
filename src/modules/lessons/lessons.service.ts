@@ -17,48 +17,47 @@ export class LessonsService {
   ) {}
 
   async create(dto: CreateLessonDto, userId: string, apiKey?: string) {
-    const lesson = await this.prisma.lesson.create({
-      data: {
-        userId,
-        title: dto.title,
-        level: dto.level,
-        themeWords: dto.themeWords ?? [],
-      },
-    });
-
-    if (dto.storyContent) {
-      try {
-        const [audioUrl, extractedWords] = await Promise.all([
-          this.audio.generateAudio(dto.storyContent, lesson.id),
-          this.story.extractWords(dto.storyContent, dto.provider ?? 'gemini', apiKey),
-        ]);
-
-        const createdStory = await this.prisma.story.create({
-          data: { lessonId: lesson.id, content: dto.storyContent, audioUrl },
-        });
-
-        for (const w of extractedWords) {
-          const vocab = await this.prisma.vocabulary.upsert({
-            where: { original: w.original.toLowerCase() },
-            update: {},
-            create: { original: w.original.toLowerCase(), translation: w.translation },
-          });
-          await this.prisma.storyWord.upsert({
-            where: { storyId_vocabularyId: { storyId: createdStory.id, vocabularyId: vocab.id } },
-            update: {},
-            create: { storyId: createdStory.id, vocabularyId: vocab.id },
-          });
-        }
-      } catch (err) {
-        this.logger.error('Falha ao processar história:', err);
-        await this.prisma.lesson.delete({ where: { id: lesson.id } }).catch(() => {});
-        throw err;
-      }
+    if (!dto.storyContent) {
+      return this.prisma.lesson.create({
+        data: { userId, title: dto.title, level: dto.level, themeWords: dto.themeWords ?? [] },
+        include: { story: { include: { words: true } } },
+      });
     }
 
-    return this.prisma.lesson.findUnique({
-      where: { id: lesson.id },
-      include: { story: { include: { words: true } } },
+    // Generate audio and extract words BEFORE any DB writes.
+    // If either fails (including OOM), no record is left in the database.
+    const [audioUrl, extractedWords] = await Promise.all([
+      this.audio.generateAudio(dto.storyContent, dto.ttsProvider ?? 'piper', apiKey),
+      this.story.extractWords(dto.storyContent, dto.provider ?? 'gemini', apiKey),
+    ]);
+
+    // Both succeeded — now persist everything atomically.
+    return this.prisma.$transaction(async (tx) => {
+      const lesson = await tx.lesson.create({
+        data: { userId, title: dto.title, level: dto.level, themeWords: dto.themeWords ?? [] },
+      });
+
+      const createdStory = await tx.story.create({
+        data: { lessonId: lesson.id, content: dto.storyContent!, audioUrl },
+      });
+
+      for (const w of extractedWords) {
+        const vocab = await tx.vocabulary.upsert({
+          where: { original: w.original.toLowerCase() },
+          update: {},
+          create: { original: w.original.toLowerCase(), translation: w.translation },
+        });
+        await tx.storyWord.upsert({
+          where: { storyId_vocabularyId: { storyId: createdStory.id, vocabularyId: vocab.id } },
+          update: {},
+          create: { storyId: createdStory.id, vocabularyId: vocab.id },
+        });
+      }
+
+      return tx.lesson.findUnique({
+        where: { id: lesson.id },
+        include: { story: { include: { words: true } } },
+      });
     });
   }
 

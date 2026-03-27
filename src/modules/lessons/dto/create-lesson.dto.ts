@@ -16,4 +16,7 @@ export class CreateLessonDto {
 
   @ApiPropertyOptional({ enum: ['gemini', 'ollama'], example: 'gemini' })
   provider?: 'gemini' | 'ollama';
+
+  @ApiPropertyOptional({ enum: ['piper', 'gemini'], example: 'piper' })
+  ttsProvider?: 'piper' | 'gemini';
 }
