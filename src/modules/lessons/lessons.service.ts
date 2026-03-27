@@ -58,7 +58,7 @@ export class LessonsService {
         where: { id: lesson.id },
         include: { story: { include: { words: true } } },
       });
-    });
+    }, { timeout: 30_000 });
   }
 
   async findAll(userId: string) {
