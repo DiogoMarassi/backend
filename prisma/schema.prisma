@@ -16,6 +16,12 @@ enum CefrLevel {
   C2
 }
 
+enum LessonStatus {
+  PENDING
+  READY
+  ERROR
+}
+
 model User {
   id        String   @id @default(uuid())
   name      String
@@ -53,12 +59,14 @@ model Streak {
 }
 
 model Lesson {
-  id         String     @id @default(uuid())
-  userId     String
-  title      String
-  level      CefrLevel?
-  themeWords String[]
-  createdAt  DateTime   @default(now())
+  id           String        @id @default(uuid())
+  userId       String
+  title        String
+  level        CefrLevel?
+  themeWords   String[]
+  status       LessonStatus  @default(READY)
+  errorMessage String?
+  createdAt    DateTime      @default(now())
 
   user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   story     Story?

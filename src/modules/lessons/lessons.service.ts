@@ -1,4 +1,5 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { LessonStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AudioService } from '../audio/audio.service';
 import { StoryService } from '../story/story.service';
@@ -19,50 +20,67 @@ export class LessonsService {
   async create(dto: CreateLessonDto, userId: string, apiKey?: string) {
     if (!dto.storyContent) {
       return this.prisma.lesson.create({
-        data: { userId, title: dto.title, level: dto.level, themeWords: dto.themeWords ?? [] },
+        data: { userId, title: dto.title, level: dto.level, themeWords: dto.themeWords ?? [], status: LessonStatus.READY },
         include: { story: { include: { words: true } } },
       });
     }
 
-    // Generate audio and extract words BEFORE any DB writes.
-    // If either fails (including OOM), no record is left in the database.
-    const [audioUrl, extractedWords] = await Promise.all([
-      this.audio.generateAudio(dto.storyContent, dto.ttsProvider ?? 'piper', apiKey),
-      this.story.extractWords(dto.storyContent, dto.provider ?? 'gemini', apiKey),
-    ]);
-
-    // Both succeeded — persist sequentially with manual rollback on failure.
+    // Create lesson immediately — respond before the slow processing begins.
     const lesson = await this.prisma.lesson.create({
-      data: { userId, title: dto.title, level: dto.level, themeWords: dto.themeWords ?? [] },
+      data: { userId, title: dto.title, level: dto.level, themeWords: dto.themeWords ?? [], status: LessonStatus.PENDING },
     });
 
-    try {
-      const createdStory = await this.prisma.story.create({
-        data: { lessonId: lesson.id, content: dto.storyContent!, audioUrl },
-      });
-
-      for (const w of extractedWords) {
-        const vocab = await this.prisma.vocabulary.upsert({
-          where: { original: w.original.toLowerCase() },
-          update: {},
-          create: { original: w.original.toLowerCase(), translation: w.translation },
-        });
-        await this.prisma.storyWord.upsert({
-          where: { storyId_vocabularyId: { storyId: createdStory.id, vocabularyId: vocab.id } },
-          update: {},
-          create: { storyId: createdStory.id, vocabularyId: vocab.id },
-        });
-      }
-    } catch (err) {
-      this.logger.error('Falha ao persistir história/vocabulário:', err);
-      await this.prisma.lesson.delete({ where: { id: lesson.id } }).catch(() => {});
-      throw err;
-    }
+    // Fire-and-forget: audio + word extraction run in background.
+    this.processInBackground(lesson.id, dto, apiKey);
 
     return this.prisma.lesson.findUnique({
       where: { id: lesson.id },
       include: { story: { include: { words: true } } },
     });
+  }
+
+  private processInBackground(lessonId: string, dto: CreateLessonDto, apiKey?: string): void {
+    (async () => {
+      try {
+        const [audioUrl, extractedWords] = await Promise.all([
+          this.audio.generateAudio(dto.storyContent!, dto.ttsProvider ?? 'piper', apiKey),
+          this.story.extractWords(dto.storyContent!, dto.provider ?? 'gemini', apiKey),
+        ]);
+
+        const createdStory = await this.prisma.story.create({
+          data: { lessonId, content: dto.storyContent!, audioUrl },
+        });
+
+        for (const w of extractedWords) {
+          const vocab = await this.prisma.vocabulary.upsert({
+            where: { original: w.original.toLowerCase() },
+            update: {},
+            create: { original: w.original.toLowerCase(), translation: w.translation },
+          });
+          await this.prisma.storyWord.upsert({
+            where: { storyId_vocabularyId: { storyId: createdStory.id, vocabularyId: vocab.id } },
+            update: {},
+            create: { storyId: createdStory.id, vocabularyId: vocab.id },
+          });
+        }
+
+        await this.prisma.lesson.update({
+          where: { id: lessonId },
+          data: { status: LessonStatus.READY },
+        });
+
+        this.logger.log(`Lição ${lessonId} processada com sucesso.`);
+      } catch (err) {
+        this.logger.error(`Falha ao processar lição ${lessonId}:`, err);
+        await this.prisma.lesson.update({
+          where: { id: lessonId },
+          data: {
+            status: LessonStatus.ERROR,
+            errorMessage: err instanceof Error ? err.message : String(err),
+          },
+        }).catch(() => {});
+      }
+    })();
   }
 
   async findAll(userId: string) {
@@ -99,7 +117,6 @@ export class LessonsService {
     });
     if (!lesson || lesson.userId !== userId) throw new NotFoundException('Lição não encontrada');
 
-    // Flatten StoryWord → Vocabulary para o frontend receber { id, original, translation }
     return {
       ...lesson,
       story: lesson.story
