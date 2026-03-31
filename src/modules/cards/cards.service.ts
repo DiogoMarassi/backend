@@ -24,6 +24,7 @@ export class CardsService {
     });
     return cards.map((c) => ({
       id: c.id,
+      vocabularyId: c.vocabularyId,
       lessonId: c.lessonId,
       lessonTitle: c.lesson?.title ?? '',
       savedAt: c.savedAt,
@@ -41,6 +42,7 @@ export class CardsService {
     });
     return cards.map((c) => ({
       id: c.id,
+      vocabularyId: c.vocabularyId,
       lessonId: c.lessonId,
       lessonTitle: c.lesson?.title ?? '',
       savedAt: c.savedAt,

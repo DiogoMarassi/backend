@@ -92,6 +92,11 @@ export class AudioService {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${key}`;
 
     const body = {
+      system_instruction: {
+        parts: [{
+          text: 'You are a French language teacher reading a story aloud to beginner and intermediate students. Speak slowly, clearly, and with natural pauses between sentences and paragraphs. Articulate each word carefully so that learners can follow along and improve their listening comprehension. Do not rush.',
+        }],
+      },
       contents: [{ parts: [{ text }] }],
       generationConfig: {
         responseModalities: ['AUDIO'],
