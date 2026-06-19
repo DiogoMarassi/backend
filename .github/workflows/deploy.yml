@@ -36,7 +36,7 @@ jobs:
     steps:
       - name: Executar comandos na EC2 via SSH
         # Pinado na versão v1.0.3 em vez de @master
-        uses: appleboy/ssh-action@08304c40590059f3d5386001d8100e47087e5b60 
+        uses: appleboy/ssh-action@1530429296e979861824d74fb800013190b5dee0 
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
