@@ -3,7 +3,7 @@ name: CI/CD Pipeline - Backend Node.js
 on:
   push:
     branches:
-      - main # ou master, dependendo do padrão do seu repositório
+      - master # ou master, dependendo do padrão do seu repositório
 
 jobs:
   # 1. Análise de Qualidade com SonarQube
