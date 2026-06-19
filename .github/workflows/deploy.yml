@@ -1,0 +1,53 @@
+name: CI/CD Pipeline - Backend Node.js
+
+on:
+  push:
+    branches:
+      - main # ou master, dependendo do padrão do seu repositório
+
+jobs:
+  # 1. Análise de Qualidade com SonarQube
+  sonarcloud:
+    name: SonarQube Analysis
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Necessário para o Sonar ler o histórico completo
+
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarcloud-github-action@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }} # O token que você já configurou
+
+  # 2. Deploy na AWS EC2 (Só roda se o Sonar passar)
+  deploy:
+    name: Deploy to EC2
+    needs: sonarcloud
+    runs-on: ubuntu-latest
+    steps:
+      - name: Executar comandos na EC2 via SSH
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            # 1. Entra na pasta do seu projeto
+            cd /var/www/back/NOME_DA_SUA_PASTA
+            
+            # 2. Puxa as novidades do GitHub
+            git pull origin main
+            
+            # 3. Instala pacotes novos e sincroniza o banco
+            npm install
+            npx prisma generate
+            npx prisma db push
+            
+            # 4. Refaz o build do NestJS com o código novo
+            npm run build
+            
+            # 5. Reinicia a API no PM2
+            pm2 restart backend-api
