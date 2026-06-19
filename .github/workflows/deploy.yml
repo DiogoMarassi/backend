@@ -52,4 +52,6 @@ jobs:
             npm run build
             
             # 5. Reinicia a API no PM2
-            pm2 restart backend-api
+            pm2 restart backend-api || pm2 start dist/main.js --name "backend-api"
+
+            pm2 save
