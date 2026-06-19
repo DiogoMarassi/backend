@@ -27,7 +27,7 @@ jobs:
             -Dsonar.projectKey=DiogoMarassi_backend
             -Dsonar.organization=diogomarassi
             -Dsonar.sources=.
-            -Dsonar.exclusions=node_modules/** .next/** out/** build/**
+            -Dsonar.exclusions=node_modules/** out/** build/**
   # 2. Deploy na AWS EC2 (Só roda se o Sonar passar)
   deploy:
     name: Deploy to EC2
