@@ -34,19 +34,14 @@ jobs:
     needs: sonarcloud
     runs-on: self-hosted
     steps:
-      - name: Executar comandos na EC2 via SSH
+      - name: Deploy na EC2 sem ssh (via runner)
         # Pinado na versão v1.0.3 em vez de @master
-        uses: appleboy/ssh-action@1530429296e979861824d74fb800013190b5dee0 
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ubuntu
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
+        run: |
             # 1. Entra na pasta do seu projeto (Lembre-se de ajustar o nome abaixo!)
-            cd /var/www/back/NOME_DA_SUA_PASTA
+            cd /ligua/backend
             
             # 2. Puxa as novidades do GitHub
-            git pull origin main
+            git pull origin master
             
             # 3. Instala pacotes novos e sincroniza o banco
             npm install
