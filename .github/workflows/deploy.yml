@@ -44,7 +44,7 @@ jobs:
             git pull origin master
             
             # 3. Instala pacotes novos e sincroniza o banco
-            npm install
+            npm install --ignore-scripts --frozen-lockfile
             npx prisma generate
             npx prisma db push
             

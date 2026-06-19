@@ -5,7 +5,7 @@ WORKDIR /app
 
 COPY package*.json ./
 COPY prisma ./prisma/
-RUN npm ci
+RUN npm ci --ignore-scripts
 
 COPY tsconfig*.json nest-cli.json ./
 COPY src ./src/
