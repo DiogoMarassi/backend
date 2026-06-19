@@ -12,15 +12,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout do código
-        uses: actions/checkout@v4
+        # Pinado na versão v4.2.2
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 
         with:
-          fetch-depth: 0  # Necessário para o Sonar ler o histórico completo
+          fetch-depth: 0
 
       - name: SonarCloud Scan
-        uses: SonarSource/sonarcloud-github-action@master
+        # Pinado em uma versão estável recente em vez de @master
+        uses: SonarSource/sonarcloud-github-action@381f152560a9fda2634d241d4a034e5a9111f148 
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }} # O token que você já configurou
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
   # 2. Deploy na AWS EC2 (Só roda se o Sonar passar)
   deploy:
@@ -29,13 +31,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Executar comandos na EC2 via SSH
-        uses: appleboy/ssh-action@master
+        # Pinado na versão v1.0.3 em vez de @master
+        uses: appleboy/ssh-action@7eaf76671a0d7eefa9d09c529005ea0b5a374c29 
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            # 1. Entra na pasta do seu projeto
+            # 1. Entra na pasta do seu projeto (Lembre-se de ajustar o nome abaixo!)
             cd /var/www/back/NOME_DA_SUA_PASTA
             
             # 2. Puxa as novidades do GitHub
