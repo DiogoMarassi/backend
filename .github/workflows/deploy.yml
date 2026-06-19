@@ -22,7 +22,12 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-
+        with:
+          args: >
+            -Dsonar.projectKey=DiogoMarassi_backend
+            -Dsonar.organization=diogomarassi
+            -Dsonar.sources=.
+            -Dsonar.exclusions=node_modules/**, .next/**, out/**, build/**
   # 2. Deploy na AWS EC2 (Só roda se o Sonar passar)
   deploy:
     name: Deploy to EC2
