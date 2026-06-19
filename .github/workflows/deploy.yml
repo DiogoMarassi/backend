@@ -9,7 +9,7 @@ jobs:
   # 1. Análise de Qualidade com SonarQube
   sonarcloud:
     name: SonarQube Analysis
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - name: Checkout do código
         # Pinado na versão v4.2.2
@@ -32,7 +32,7 @@ jobs:
   deploy:
     name: Deploy to EC2
     needs: sonarcloud
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - name: Executar comandos na EC2 via SSH
         # Pinado na versão v1.0.3 em vez de @master
