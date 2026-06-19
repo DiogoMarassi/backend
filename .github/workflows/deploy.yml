@@ -38,7 +38,7 @@ jobs:
         # Pinado na versão v1.0.3 em vez de @master
         run: |
             # 1. Entra na pasta do seu projeto (Lembre-se de ajustar o nome abaixo!)
-            cd home/ubuntu/ligua/backend
+            cd home/ubuntu/lingua/backend
             
             # 2. Puxa as novidades do GitHub
             git pull origin master
