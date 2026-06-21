@@ -92,8 +92,7 @@ export class AudioService {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${key}`;
 
     const body = {
-      system_instruction: { parts: [{ text: 'Read the following text aloud.' }] },
-      contents: [{ parts: [{ text }] }],
+      contents: [{ role: 'user', parts: [{ text }] }],
       generationConfig: {
         responseModalities: ['AUDIO'],
         speechConfig: {
