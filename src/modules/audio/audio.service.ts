@@ -3,12 +3,12 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as crypto from 'crypto';
 import { spawn } from 'child_process';
-import { Storage } from '@google-cloud/storage';
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 
 @Injectable()
 export class AudioService {
   private readonly logger = new Logger(AudioService.name);
-  private readonly storage = new Storage();
+  private readonly s3 = new S3Client({ region: process.env.AWS_REGION ?? 'us-east-1' });
 
   // ── Entry point ────────────────────────────────────────────────────────────
 
@@ -18,17 +18,17 @@ export class AudioService {
     apiKey?: string,
   ): Promise<string> {
     const outputFileName = `lesson_${crypto.randomUUID()}.wav`;
-    const bucketName = process.env.GCS_BUCKET_NAME;
-    if (!bucketName) throw new Error('GCS_BUCKET_NAME não definido nas variáveis de ambiente');
+    const bucketName = process.env.AWS_BUCKET_NAME;
+    if (!bucketName) throw new Error('AWS_BUCKET_NAME não definido nas variáveis de ambiente');
 
     const wavBuffer =
       ttsProvider === 'gemini'
         ? await this.generateWithGemini(text, apiKey)
         : await this.generateWithPiper(text, outputFileName);
 
-    await this.uploadToGcs(wavBuffer, outputFileName, bucketName);
+    await this.uploadToS3(wavBuffer, outputFileName, bucketName);
 
-    this.logger.log(`Áudio enviado para GCS: gs://${bucketName}/audios/${outputFileName}`);
+    this.logger.log(`Áudio enviado para S3: s3://${bucketName}/audios/${outputFileName}`);
     return `/api/audio/${outputFileName}`;
   }
 
@@ -152,8 +152,12 @@ export class AudioService {
     return wav;
   }
 
-  private async uploadToGcs(buffer: Buffer, fileName: string, bucketName: string): Promise<void> {
-    const file = this.storage.bucket(bucketName).file(`audios/${fileName}`);
-    await file.save(buffer, { metadata: { contentType: 'audio/wav' } });
+  private async uploadToS3(buffer: Buffer, fileName: string, bucketName: string): Promise<void> {
+    await this.s3.send(new PutObjectCommand({
+      Bucket: bucketName,
+      Key: `audios/${fileName}`,
+      Body: buffer,
+      ContentType: 'audio/wav',
+    }));
   }
 }

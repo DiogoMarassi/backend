@@ -1,10 +1,11 @@
 import { Controller, Get, Param, Req, Res } from '@nestjs/common';
 import type { Request, Response } from 'express';
-import { Storage } from '@google-cloud/storage';
+import { S3Client, GetObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
+import type { Readable } from 'stream';
 
 @Controller('audio')
 export class AudioController {
-  private readonly storage = new Storage();
+  private readonly s3 = new S3Client({ region: process.env.AWS_REGION ?? 'us-east-1' });
 
   @Get(':filename')
   async streamAudio(
@@ -12,11 +13,11 @@ export class AudioController {
     @Req() req: Request,
     @Res() res: Response,
   ) {
-    const bucketName = process.env.GCS_BUCKET_NAME ?? '';
-    const file = this.storage.bucket(bucketName).file(`audios/${filename}`);
+    const bucketName = process.env.AWS_BUCKET_NAME ?? '';
+    const key = `audios/${filename}`;
 
-    const [metadata] = await file.getMetadata();
-    const fileSize = parseInt(metadata.size as string, 10);
+    const head = await this.s3.send(new HeadObjectCommand({ Bucket: bucketName, Key: key }));
+    const fileSize = head.ContentLength ?? 0;
 
     res.setHeader('Content-Type', 'audio/wav');
     res.setHeader('Accept-Ranges', 'bytes');
@@ -33,10 +34,16 @@ export class AudioController {
       res.setHeader('Content-Range', `bytes ${start}-${end}/${fileSize}`);
       res.setHeader('Content-Length', chunkSize);
 
-      file.createReadStream({ start, end }).pipe(res);
+      const { Body } = await this.s3.send(new GetObjectCommand({
+        Bucket: bucketName,
+        Key: key,
+        Range: `bytes=${start}-${end}`,
+      }));
+      (Body as Readable).pipe(res);
     } else {
       res.setHeader('Content-Length', fileSize);
-      file.createReadStream().pipe(res);
+      const { Body } = await this.s3.send(new GetObjectCommand({ Bucket: bucketName, Key: key }));
+      (Body as Readable).pipe(res);
     }
   }
 }
