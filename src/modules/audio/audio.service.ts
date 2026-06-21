@@ -115,6 +115,7 @@ export class AudioService {
     }
 
     const data = await response.json() as any;
+    this.logger.log(`Gemini TTS response: ${JSON.stringify(data).slice(0, 500)}`);
     const inlineData = data?.candidates?.[0]?.content?.parts?.[0]?.inlineData;
     if (!inlineData?.data) throw new Error('Gemini TTS não retornou dados de áudio');
 
